@@ -1,17 +1,15 @@
-//INITIALIZES THE NPM PACKAGES USED//
 var mysql = require('mysql');
 var inquirer = require('inquirer');
 
-//INITIALIZES THE CONNECTION VARIABLE TO SYNC WITH A MYSQL DATABASE//
 var connection = mysql.createConnection({
     host: "localhost",
     port: 3306,
-    user: "root", //Your username//
-    password: "", //Your password//
+    user: "root", 
+    password: "", 
     database: "Bamazon"
 })
 
-//CREATES THE CONNECTION WITH THE SERVER AND MAKES THE TABLE UPON SUCCESSFUL CONNECTION//
+
 connection.connect(function(err) {
     if (err) {
         console.error("error connecting: " + err.stack);
@@ -39,27 +37,43 @@ var makeTable = function() {
 };
 
 //FUNCTION CONTAINING ALL CUSTOMER PROMPTS//
-var promptCustomer = function(res) {
-        //PROMPTS USER FOR WHAT THEY WOULD LIKE TO PURCHASE//
-        inquirer.prompt([{
-            type: 'input',
-            name: 'choice',
-            message: 'What would you like to purchase?'
-        }]).then(function(val) {
-
-                //SET THE VAR correct TO FALSE SO AS TO MAKE SURE THE USER INPUTS A VALID PRODUCT NAME//
-                var correct = false;
-                //LOOPS THROUGH THE MYSQL TABLE TO CHECK THAT THE PRODUCT THEY WANTED EXISTS//
-                for (var i = 0; i < res.length; i++) {                    	
-	                //1. TODO: IF THE PRODUCT EXISTS, SET correct = true and ASK THE USER TO SEE HOW MANY OF THE PRODUCT THEY WOULD LIKE TO BUY//
-	               	//2. TODO: CHECK TO SEE IF THE AMOUNT REQUESTED IS LESS THAN THE AMOUNT THAT IS AVAILABLE//                       
-	                //3. TODO: UPDATE THE MYSQL TO REDUCE THE StockQuanaity by the THE AMOUNT REQUESTED  - UPDATE COMMAND!
-	                //4. TODO: SHOW THE TABLE again by calling the function that makes the table
-                }
-
-                //IF THE PRODUCT REQUESTED DOES NOT EXIST, RESTARTS PROMPT//
-                if (i == res.length && correct == false) {
-                    promptCustomer(res);
-                }
-            });
-}
+var promptCustomer=function(res){
+	//PROMPTS USER FOR WHAT THEY WOULD LIKE TO PURCHASE//
+	inquirer.prompt([
+		{type:'input',
+		name:'choice',
+		message:'What would you like to purchase? [Quit with Q]'}]).then(function(val){
+		//SET THE VAR correct TO FALSE SO AS TO MAKE SURE THE USER INPUTS A VALID PRODUCT NAME//
+		var correct=false;
+		//LOOPS THROUGH THE MYSQL TABLE TO CHECK THAT THE PRODUCT THEY WANTED EXISTS//
+		for(var i=0;i<res.length;i++){
+			//IF THE PRODUCT EXISTS, SAVE THE DATA FOR SAID PRODUCT WITHIN THE product AND id VARIABLES//
+			if(res[i].ProductName==val.choice){
+				var correct=true;
+				var product=val.choice;
+				var id=i;
+				//PROMPTS THE USER TO SEE HOW MANY OF THE PRODUCT THEY WOULD LIKE TO BUY//
+				inquirer.prompt([
+					{type:'input',
+					name:'quant',
+					message:"How many would you like to buy?"}]).then(function(val){
+					//CHECKS TO SEE IF THE AMOUNT REQUESTED IS LESS THAN THE AMOUNT THAT IS AVAILABLE//
+					if((res[id].StockQuantity-val.quant)>0){
+						//REMOVES THE AMOUNT REQUESTED FROM THE MYSQL TABLE//
+						connection.query("UPDATE products SET StockQuantity='"+(res[id].StockQuantity-val.quant)+"' WHERE ProductName='"+product+"'", function(err, res2){
+							if(err)throw err;
+							//TELLS THE USER THAT THE PRODUCT HAS BEEN PURCHASED//
+							console.log("PRODUCT BOUGHT!");
+							//REWRITES THE TABLE AND STARTS AGAIN//
+							makeTable();})}
+					//IF THE AMOUNT REQUESTED WAS GREATER THAN THE AMOUNT AVAILABLE, RESTARTS PROMPTS//
+					else{
+						console.log("NOT A VALID SELECTION!");
+						promptCustomer(res);}})}
+			//IF THE USER INPUTTED Q, EXIT PROGRAM//
+			if(val.choice=="Q"||val.choice=="q"){process.exit()}}
+		//IF THE PRODUCT REQUESTED DOES NOT EXIST, RESTARTS PROMPTS//
+		if(i==res.length&&correct==false){
+			console.log("NOT A VALID SELECTION");
+			promptCustomer(res);}
+		})}
